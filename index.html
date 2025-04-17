@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
   <head>
+    <!-- 기존 코드 유지 -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>단어 플래시카드 시험지</title>
@@ -10,6 +11,14 @@
     <div class="container">
       <div id="counter" class="counter"></div>
 
+      <!-- 통계 정보 영역 추가 -->
+      <div id="stats" class="stats">
+        <span id="stats-correct" class="stats-item">맞춤: 0</span>
+        <span id="stats-wrong" class="stats-item">틀림: 0</span>
+        <span id="stats-total" class="stats-item">진행: 0%</span>
+      </div>
+
+      <!-- 기존 코드 유지 -->
       <section id="card">
         <p id="word" class="word"></p>
         <p id="translation" class="hidden meaning"></p>
@@ -27,6 +36,9 @@
         <button id="prevBtn" class="nav">←</button>
         <button id="nextBtn" class="nav">→</button>
       </div>
+
+      <!-- 통계 초기화 버튼 추가 -->
+      <button id="resetStatsBtn" class="reset-btn">통계 초기화</button>
     </div>
 
     <script src="script.js" defer></script>

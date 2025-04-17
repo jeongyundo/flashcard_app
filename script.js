@@ -16,6 +16,12 @@ const wrongBtn = document.getElementById("wrongBtn");
 const prevBtn = document.getElementById("prevBtn");
 const nextBtn = document.getElementById("nextBtn");
 
+// 통계 관련 DOM 요소
+const statsCorrectEl = document.getElementById("stats-correct");
+const statsWrongEl = document.getElementById("stats-wrong");
+const statsTotalEl = document.getElementById("stats-total");
+const resetStatsBtn = document.getElementById("resetStatsBtn");
+
 // ③ 앱 시작 ------------------------------------------
 init(); // 가장 아래쪽까지 읽힌 뒤 실행됨( defer 덕분 )
 
@@ -32,6 +38,7 @@ async function init() {
     // (2) 첫 카드 렌더
     attachEvents();
     renderCard();
+    updateStats(); // 통계 초기 업데이트
   } catch (err) {
     alert(
       err.message +
@@ -50,6 +57,8 @@ function attachEvents() {
   wrongBtn.addEventListener("click", () => storeAnswer(false));
   prevBtn.addEventListener("click", () => move(-1));
   nextBtn.addEventListener("click", () => move(1));
+  resetStatsBtn.addEventListener("click", resetStats);
+
   document.addEventListener("keydown", (e) => {
     if (e.key === "ArrowRight") move(1);
     if (e.key === "ArrowLeft") move(-1);
@@ -70,6 +79,35 @@ function renderCard() {
   explEl.classList.add("hidden");
   revealBtn.textContent = "뜻 보기";
   revealBtn.style.visibility = "visible";
+
+  // 이미 학습한 단어인지 표시
+  showWordStatus();
+}
+
+// 단어의 학습 상태 표시 (O/X)
+function showWordStatus() {
+  // 기존 상태 표시 요소 제거
+  const existingStatus = document.querySelector(".word-status");
+  if (existingStatus) {
+    existingStatus.remove();
+  }
+
+  const key = `word-${words[idx].number}`;
+  const status = localStorage.getItem(key);
+
+  if (status) {
+    const statusEl = document.createElement("div");
+    statusEl.classList.add("word-status");
+    statusEl.textContent = status;
+
+    if (status === "O") {
+      statusEl.classList.add("correct-mark");
+    } else {
+      statusEl.classList.add("wrong-mark");
+    }
+
+    document.getElementById("card").appendChild(statusEl);
+  }
 }
 
 function revealHandler() {
@@ -86,6 +124,7 @@ function revealHandler() {
 function storeAnswer(isCorrect) {
   const key = `word-${words[idx].number}`;
   localStorage.setItem(key, isCorrect ? "O" : "X");
+  updateStats(); // 통계 업데이트
   move(1);
 }
 
@@ -94,4 +133,49 @@ function move(delta) {
   if (newIdx < 0 || newIdx >= words.length) return;
   idx = newIdx;
   renderCard();
+}
+
+// ⑥ 통계 관련 기능 ----------------------------------
+// 통계 계산 및 표시
+function updateStats() {
+  let correct = 0;
+  let wrong = 0;
+  let total = 0;
+
+  // 모든 단어에 대한 O/X 상태 확인
+  for (const word of words) {
+    const key = `word-${word.number}`;
+    const status = localStorage.getItem(key);
+
+    if (status === "O") {
+      correct++;
+      total++;
+    } else if (status === "X") {
+      wrong++;
+      total++;
+    }
+  }
+
+  // 통계 화면 업데이트
+  statsCorrectEl.textContent = `맞춤: ${correct}`;
+  statsWrongEl.textContent = `틀림: ${wrong}`;
+
+  const progress =
+    words.length > 0 ? Math.round((total / words.length) * 100) : 0;
+  statsTotalEl.textContent = `진행: ${progress}%`;
+}
+
+// 통계 초기화
+function resetStats() {
+  if (confirm("모든 학습 기록을 초기화하시겠습니까?")) {
+    // 단어 관련 localStorage 항목만 삭제
+    for (const word of words) {
+      const key = `word-${word.number}`;
+      localStorage.removeItem(key);
+    }
+
+    // 통계 및 화면 업데이트
+    updateStats();
+    showWordStatus(); // 현재 카드의 상태 표시 업데이트
+  }
 }

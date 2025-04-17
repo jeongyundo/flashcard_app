@@ -97,3 +97,69 @@ button:active {
   width: 48%;
   background: #e2e8f0;
 }
+/* 기존 CSS 유지 */
+
+/* 통계 표시 스타일 */
+.stats {
+  display: flex;
+  justify-content: space-around;
+  margin: 10px 0;
+  padding: 8px;
+  background-color: #f8f9fa;
+  border-radius: 10px;
+  font-size: 0.9rem;
+}
+
+.stats-item {
+  padding: 4px 8px;
+}
+
+#stats-correct {
+  color: #22c55e;
+  font-weight: bold;
+}
+
+#stats-wrong {
+  color: #ef4444;
+  font-weight: bold;
+}
+
+#stats-total {
+  color: #0a84ff;
+  font-weight: bold;
+}
+
+/* 통계 초기화 버튼 */
+.reset-btn {
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 0.9rem;
+  margin-top: 20px;
+  padding: 8px 12px;
+}
+
+.reset-btn:hover {
+  background: #e2e8f0;
+}
+
+/* 이미 학습한 단어 표시 */
+.word-status {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  font-size: 1.2rem;
+  font-weight: bold;
+}
+
+.correct-mark {
+  color: #22c55e;
+}
+
+.wrong-mark {
+  color: #ef4444;
+}
+
+/* 카드 컨테이너에 상대 위치 적용 */
+#card {
+  position: relative;
+}
