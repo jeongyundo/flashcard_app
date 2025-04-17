@@ -1,15 +1,33 @@
 <!DOCTYPE html>
 <html lang="ko">
   <head>
-    <!-- 기존 코드 유지 -->
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
     <title>단어 플래시카드 시험지</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div class="container">
-      <div id="counter" class="counter"></div>
+    <!-- 모드 선택 화면 -->
+    <div id="mode-selector" class="container mode-selector">
+      <h1 class="title">단어 플래시카드</h1>
+      <p class="subtitle">학습 모드를 선택하세요</p>
+
+      <div class="mode-buttons">
+        <button id="fullModeBtn" class="mode-btn">전체 단어 외우기</button>
+        <button id="randomModeBtn" class="mode-btn">30개 랜덤 외우기</button>
+      </div>
+
+      <div class="mode-info">
+        <span id="total-count">총 0개 단어</span>
+      </div>
+    </div>
+
+    <!-- 카드 학습 화면 (기존 코드) -->
+    <div id="study-container" class="container" style="display:none;">
+      <div class="header-controls">
+        <div id="counter" class="counter"></div>
+        <button id="backToModeBtn" class="back-btn">◀ 모드 선택</button>
+      </div>
 
       <!-- 통계 정보 영역 추가 -->
       <div id="stats" class="stats">
@@ -18,7 +36,6 @@
         <span id="stats-total" class="stats-item">진행: 0%</span>
       </div>
 
-      <!-- 기존 코드 유지 -->
       <section id="card">
         <p id="word" class="word"></p>
         <p id="translation" class="hidden meaning"></p>
