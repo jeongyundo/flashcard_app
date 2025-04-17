@@ -189,3 +189,71 @@ button:active {
   align-items: center;
   gap: 5px;
 }
+
+/* 모드 선택 관련 스타일 */
+.mode-selector {
+  text-align: center;
+  padding: 32px 24px;
+}
+
+.title {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #111;
+  margin-bottom: 8px;
+}
+
+.subtitle {
+  font-size: 1.1rem;
+  color: #555;
+  margin-bottom: 32px;
+}
+
+.mode-buttons {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.mode-btn {
+  background: #0a84ff;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  padding: 18px;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mode-btn:hover {
+  background: #0056b3;
+}
+
+.mode-info {
+  margin-top: 24px;
+  font-size: 0.9rem;
+  color: #666;
+}
+
+/* 백 버튼 스타일 */
+.header-controls {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.back-btn {
+  background: transparent;
+  color: #0a84ff;
+  font-size: 0.9rem;
+  padding: 6px 10px;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+}
+
+.back-btn:hover {
+  background: #f1f5f9;
+}

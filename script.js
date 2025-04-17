@@ -1,11 +1,22 @@
 // script.js
 // ----------------------------------------------------
 // ① 전역 변수
-let words = []; // JSON 로드 후 채워짐
+let allWords = []; // JSON에서 로드한 모든 단어
+let words = []; // 현재 학습 중인 단어 세트
 let idx = 0; // 현재 카드 인덱스
 let revealStep = 0; // 0:뜻 숨김, 1:뜻, 2:설명
+let currentMode = null; // 'full' 또는 'random'
 
 // ② DOM 참조
+// 모드 선택 화면 요소
+const modeSelectorEl = document.getElementById("mode-selector");
+const fullModeBtnEl = document.getElementById("fullModeBtn");
+const randomModeBtnEl = document.getElementById("randomModeBtn");
+const totalCountEl = document.getElementById("total-count");
+const backToModeBtnEl = document.getElementById("backToModeBtn");
+
+// 학습 화면 요소
+const studyContainerEl = document.getElementById("study-container");
 const wordEl = document.getElementById("word");
 const transEl = document.getElementById("translation");
 const explEl = document.getElementById("explanation");
@@ -30,15 +41,19 @@ async function init() {
     // (1) JSON 파일 로드
     const res = await fetch("vocabulary_processed.json");
     if (!res.ok) throw new Error("JSON 파일을 불러오지 못했습니다.");
-    words = await res.json();
+    allWords = await res.json();
 
-    if (!Array.isArray(words) || words.length === 0)
+    if (!Array.isArray(allWords) || allWords.length === 0)
       throw new Error("단어 배열이 비어 있습니다.");
 
-    // (2) 첫 카드 렌더
+    // 총 단어 수 표시
+    totalCountEl.textContent = `총 ${allWords.length}개 단어`;
+
+    // (2) 이벤트 리스너 연결
     attachEvents();
-    renderCard();
-    updateStats(); // 통계 초기 업데이트
+
+    // 모드 선택 화면 표시
+    showModeSelector();
   } catch (err) {
     alert(
       err.message +
@@ -52,6 +67,12 @@ async function init() {
 
 // ④ 이벤트 -------------------------------------------
 function attachEvents() {
+  // 모드 선택 이벤트
+  fullModeBtnEl.addEventListener("click", () => startMode("full"));
+  randomModeBtnEl.addEventListener("click", () => startMode("random"));
+  backToModeBtnEl.addEventListener("click", showModeSelector);
+
+  // 기존 이벤트
   revealBtn.addEventListener("click", revealHandler);
   correctBtn.addEventListener("click", () => storeAnswer(true));
   wrongBtn.addEventListener("click", () => storeAnswer(false));
@@ -60,12 +81,97 @@ function attachEvents() {
   resetStatsBtn.addEventListener("click", resetStats);
 
   document.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowRight") move(1);
-    if (e.key === "ArrowLeft") move(-1);
+    if (modeSelectorEl.style.display === "none") {
+      // 학습 모드일 때만 키보드 이벤트 처리
+      if (e.key === "ArrowRight") move(1);
+      if (e.key === "ArrowLeft") move(-1);
+    }
   });
+
+  // 스와이프 이벤트 추가
+  const cardElement = document.getElementById("card");
+  cardElement.addEventListener("touchstart", handleTouchStart, {
+    passive: true,
+  });
+  cardElement.addEventListener("touchend", handleTouchEnd, { passive: true });
 }
 
-// ⑤ 렌더 & 로직 --------------------------------------
+// ⑤ 모드 관련 함수 -----------------------------------
+function showModeSelector() {
+  // 모드 선택 화면 표시, 학습 화면 숨김
+  modeSelectorEl.style.display = "block";
+  studyContainerEl.style.display = "none";
+
+  // 현재 모드 초기화
+  currentMode = null;
+}
+
+function startMode(mode) {
+  currentMode = mode;
+
+  // 선택된 모드에 따라 단어 세트 설정
+  if (mode === "full") {
+    // 전체 단어 사용
+    words = [...allWords];
+  } else if (mode === "random") {
+    // 30개 랜덤 선택
+    words = getRandomWords(allWords, 30);
+  }
+
+  // 인덱스 초기화 및 첫 카드 렌더링
+  idx = 0;
+  renderCard();
+  updateStats();
+
+  // 모드 선택 화면 숨김, 학습 화면 표시
+  modeSelectorEl.style.display = "none";
+  studyContainerEl.style.display = "block";
+}
+
+// 배열에서 랜덤하게 n개 아이템 선택하는 함수
+function getRandomWords(array, n) {
+  // 원본 배열 복사
+  const shuffled = [...array];
+
+  // 배열 섞기 (Fisher-Yates 알고리즘)
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+
+  // 앞에서부터 n개 선택
+  return shuffled.slice(0, n);
+}
+
+// ⑥ 터치 이벤트 처리 ---------------------------------
+let touchStartX = 0;
+let touchEndX = 0;
+const minSwipeDistance = 50;
+
+function handleTouchStart(e) {
+  touchStartX = e.changedTouches[0].screenX;
+}
+
+function handleTouchEnd(e) {
+  touchEndX = e.changedTouches[0].screenX;
+  handleSwipe();
+}
+
+function handleSwipe() {
+  const swipeDistance = touchEndX - touchStartX;
+
+  if (Math.abs(swipeDistance) >= minSwipeDistance) {
+    if (swipeDistance > 0) {
+      // 오른쪽으로 스와이프 -> 이전 카드
+      move(-1);
+    } else {
+      // 왼쪽으로 스와이프 -> 다음 카드
+      move(1);
+    }
+  }
+}
+
+// ⑦ 기존 기능 유지 ----------------------------------
 function renderCard() {
   const w = words[idx];
   wordEl.textContent = w.english_word;
@@ -84,7 +190,6 @@ function renderCard() {
   showWordStatus();
 }
 
-// 단어의 학습 상태 표시 (O/X)
 function showWordStatus() {
   // 기존 상태 표시 요소 제거
   const existingStatus = document.querySelector(".word-status");
@@ -92,7 +197,9 @@ function showWordStatus() {
     existingStatus.remove();
   }
 
-  const key = `word-${words[idx].number}`;
+  // 모드별 LocalStorage 키 생성
+  const storagePrefix = currentMode === "random" ? "random-" : "";
+  const key = `${storagePrefix}word-${words[idx].number}`;
   const status = localStorage.getItem(key);
 
   if (status) {
@@ -122,7 +229,9 @@ function revealHandler() {
 }
 
 function storeAnswer(isCorrect) {
-  const key = `word-${words[idx].number}`;
+  // 모드별 LocalStorage 키 생성
+  const storagePrefix = currentMode === "random" ? "random-" : "";
+  const key = `${storagePrefix}word-${words[idx].number}`;
   localStorage.setItem(key, isCorrect ? "O" : "X");
   updateStats(); // 통계 업데이트
   move(1);
@@ -135,16 +244,18 @@ function move(delta) {
   renderCard();
 }
 
-// ⑥ 통계 관련 기능 ----------------------------------
-// 통계 계산 및 표시
+// 통계 계산 및 표시 (모드별 구분)
 function updateStats() {
   let correct = 0;
   let wrong = 0;
   let total = 0;
 
-  // 모든 단어에 대한 O/X 상태 확인
+  // 모드별 LocalStorage 접두사
+  const storagePrefix = currentMode === "random" ? "random-" : "";
+
+  // 현재 모드의 단어셋에 대한 O/X 상태 확인
   for (const word of words) {
-    const key = `word-${word.number}`;
+    const key = `${storagePrefix}word-${word.number}`;
     const status = localStorage.getItem(key);
 
     if (status === "O") {
@@ -165,76 +276,20 @@ function updateStats() {
   statsTotalEl.textContent = `진행: ${progress}%`;
 }
 
-// 통계 초기화
+// 통계 초기화 (모드별 구분)
 function resetStats() {
-  if (confirm("모든 학습 기록을 초기화하시겠습니까?")) {
-    // 단어 관련 localStorage 항목만 삭제
+  if (confirm("현재 모드의 학습 기록을 초기화하시겠습니까?")) {
+    // 모드별 LocalStorage 접두사
+    const storagePrefix = currentMode === "random" ? "random-" : "";
+
+    // 현재 모드의 단어 관련 localStorage 항목만 삭제
     for (const word of words) {
-      const key = `word-${word.number}`;
+      const key = `${storagePrefix}word-${word.number}`;
       localStorage.removeItem(key);
     }
 
     // 통계 및 화면 업데이트
     updateStats();
-    showWordStatus(); // 현재 카드의 상태 표시 업데이트
-  }
-}
-
-// 스와이프 관련 변수
-let touchStartX = 0;
-let touchEndX = 0;
-const minSwipeDistance = 50; // 최소 스와이프 거리 (px)
-
-// 이벤트 리스너 추가 함수에 스와이프 관련 이벤트 추가
-function attachEvents() {
-  // 기존 이벤트 유지
-  revealBtn.addEventListener("click", revealHandler);
-  correctBtn.addEventListener("click", () => storeAnswer(true));
-  wrongBtn.addEventListener("click", () => storeAnswer(false));
-  prevBtn.addEventListener("click", () => move(-1));
-  nextBtn.addEventListener("click", () => move(1));
-  resetStatsBtn.addEventListener("click", resetStats);
-
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "ArrowRight") move(1);
-    if (e.key === "ArrowLeft") move(-1);
-  });
-
-  // 카드 요소에 터치 이벤트 추가
-  const cardElement = document.getElementById("card");
-
-  // 터치 시작 이벤트
-  cardElement.addEventListener(
-    "touchstart",
-    (e) => {
-      touchStartX = e.changedTouches[0].screenX;
-    },
-    { passive: true }
-  );
-
-  // 터치 종료 이벤트
-  cardElement.addEventListener(
-    "touchend",
-    (e) => {
-      touchEndX = e.changedTouches[0].screenX;
-      handleSwipe();
-    },
-    { passive: true }
-  );
-}
-
-// 스와이프 처리 함수
-function handleSwipe() {
-  const swipeDistance = touchEndX - touchStartX;
-
-  // 최소 스와이프 거리를 넘었는지 확인
-  if (Math.abs(swipeDistance) >= minSwipeDistance) {
-    if (swipeDistance > 0) {
-      // 오른쪽으로 스와이프 -> 이전 카드
-      move(-1);
-    } else {
-      // 왼쪽으로 스와이프 -> 다음 카드
-      move(1);
-    }
+    showWordStatus();
   }
 }
