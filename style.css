@@ -1,0 +1,99 @@
+/* 모바일 친화 기본 세팅 */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  font-family: system-ui, "Apple SD Gothic Neo", "Roboto", sans-serif;
+}
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background: #f1f5f9;
+}
+.container {
+  width: 100%;
+  max-width: 450px;
+  padding: 24px;
+  text-align: center;
+  background: #fff;
+  border-radius: 18px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.08);
+}
+
+/* 카드 */
+#card {
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  margin: 32px 0;
+}
+.word {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #111;
+}
+.meaning {
+  font-size: 1.4rem;
+  color: #0a84ff;
+}
+.explanation {
+  font-size: 1rem;
+  color: #444;
+}
+.hidden {
+  visibility: hidden;
+  opacity: 0;
+}
+
+.counter {
+  font-size: 0.9rem;
+  color: #666;
+}
+
+/* 버튼 공통 */
+button {
+  border: none;
+  border-radius: 12px;
+  padding: 14px 20px;
+  font-size: 1.1rem;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+button:active {
+  transform: scale(0.96);
+}
+
+/* 특수 버튼 */
+.main-btn {
+  background: #0a84ff;
+  color: #fff;
+  width: 100%;
+}
+.answer-btns {
+  display: flex;
+  justify-content: space-around;
+  margin: 20px 0;
+}
+.answer {
+  flex: 1;
+  margin: 0 4px;
+  color: #fff;
+}
+.correct {
+  background: #22c55e;
+} /* 초록 */
+.wrong {
+  background: #ef4444;
+} /* 빨강 */
+.nav-btns {
+  display: flex;
+  justify-content: space-between;
+}
+.nav {
+  width: 48%;
+  background: #e2e8f0;
+}

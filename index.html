@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>단어 플래시카드 시험지</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <div class="container">
+      <div id="counter" class="counter"></div>
+
+      <section id="card">
+        <p id="word" class="word"></p>
+        <p id="translation" class="hidden meaning"></p>
+        <p id="explanation" class="hidden explanation"></p>
+      </section>
+
+      <button id="revealBtn" class="main-btn">뜻 보기</button>
+
+      <div class="answer-btns">
+        <button id="correctBtn" class="answer correct">O</button>
+        <button id="wrongBtn" class="answer wrong">X</button>
+      </div>
+
+      <div class="nav-btns">
+        <button id="prevBtn" class="nav">←</button>
+        <button id="nextBtn" class="nav">→</button>
+      </div>
+    </div>
+
+    <script src="script.js" defer></script>
+  </body>
+</html>
