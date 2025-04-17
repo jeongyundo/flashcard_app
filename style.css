@@ -163,3 +163,29 @@ button:active {
 #card {
   position: relative;
 }
+#card {
+  position: relative;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+  margin: 32px 0;
+  cursor: grab; /* 스와이프 가능함을 나타내는 커서 */
+  transition: transform 0.2s ease;
+  user-select: none; /* 텍스트 선택 방지 */
+  touch-action: pan-y; /* 수평 스와이프만 인식하도록 설정 */
+}
+
+/* 스와이프 힌트 아이콘 (선택 사항) */
+.swipe-hint {
+  position: absolute;
+  bottom: -30px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.8rem;
+  color: #aaa;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}

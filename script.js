@@ -179,3 +179,62 @@ function resetStats() {
     showWordStatus(); // 현재 카드의 상태 표시 업데이트
   }
 }
+
+// 스와이프 관련 변수
+let touchStartX = 0;
+let touchEndX = 0;
+const minSwipeDistance = 50; // 최소 스와이프 거리 (px)
+
+// 이벤트 리스너 추가 함수에 스와이프 관련 이벤트 추가
+function attachEvents() {
+  // 기존 이벤트 유지
+  revealBtn.addEventListener("click", revealHandler);
+  correctBtn.addEventListener("click", () => storeAnswer(true));
+  wrongBtn.addEventListener("click", () => storeAnswer(false));
+  prevBtn.addEventListener("click", () => move(-1));
+  nextBtn.addEventListener("click", () => move(1));
+  resetStatsBtn.addEventListener("click", resetStats);
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowRight") move(1);
+    if (e.key === "ArrowLeft") move(-1);
+  });
+
+  // 카드 요소에 터치 이벤트 추가
+  const cardElement = document.getElementById("card");
+
+  // 터치 시작 이벤트
+  cardElement.addEventListener(
+    "touchstart",
+    (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    },
+    { passive: true }
+  );
+
+  // 터치 종료 이벤트
+  cardElement.addEventListener(
+    "touchend",
+    (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    },
+    { passive: true }
+  );
+}
+
+// 스와이프 처리 함수
+function handleSwipe() {
+  const swipeDistance = touchEndX - touchStartX;
+
+  // 최소 스와이프 거리를 넘었는지 확인
+  if (Math.abs(swipeDistance) >= minSwipeDistance) {
+    if (swipeDistance > 0) {
+      // 오른쪽으로 스와이프 -> 이전 카드
+      move(-1);
+    } else {
+      // 왼쪽으로 스와이프 -> 다음 카드
+      move(1);
+    }
+  }
+}
