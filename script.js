@@ -6,6 +6,7 @@ let words = []; // 현재 학습 중인 단어 세트
 let idx = 0; // 현재 카드 인덱스
 let revealStep = 0; // 0:뜻 숨김, 1:뜻, 2:설명
 let currentMode = null; // 'full' 또는 'random'
+let currentUser = null; // 현재 로그인한 사용자
 
 // ② DOM 참조
 // 모드 선택 화면 요소
@@ -33,55 +34,198 @@ const statsWrongEl = document.getElementById("stats-wrong");
 const statsTotalEl = document.getElementById("stats-total");
 const resetStatsBtn = document.getElementById("resetStatsBtn");
 
+// DOM 요소 추가
+const loadingEl = document.getElementById("loading");
+
+// 인증 관련 요소
+const authContainerEl = document.getElementById("auth-container");
+const emailEl = document.getElementById("email");
+const passwordEl = document.getElementById("password");
+const loginBtnEl = document.getElementById("loginBtn");
+const signupBtnEl = document.getElementById("signupBtn");
+const logoutBtnEl = document.getElementById("logoutBtn");
+const authErrorEl = document.getElementById("auth-error");
+const googleLoginBtnEl = document.getElementById("googleLoginBtn");
+
 // ③ 앱 시작 ------------------------------------------
-init(); // 가장 아래쪽까지 읽힌 뒤 실행됨( defer 덕분 )
+document.addEventListener('DOMContentLoaded', () => {
+  init();
+});
 
 async function init() {
   try {
-    // (1) JSON 파일 로드
-    const res = await fetch("vocabulary_processed.json");
-    if (!res.ok) throw new Error("JSON 파일을 불러오지 못했습니다.");
-    allWords = await res.json();
+    showLoading();
+    
+    // Firebase 연결 확인
+    if (!firebase.apps.length) {
+      console.error("Firebase가 초기화되지 않았습니다.");
+      throw new Error("Firebase 초기화 실패");
+    }
 
-    if (!Array.isArray(allWords) || allWords.length === 0)
-      throw new Error("단어 배열이 비어 있습니다.");
+    // Firebase 연결 상태 확인
+    try {
+      // Firestore 설정
+      const firestore = firebase.firestore();
+      firestore.settings({
+        cacheSizeBytes: firebase.firestore.CACHE_SIZE_UNLIMITED
+      });
+      
+      // 연결 테스트
+      await firestore.collection('vocabulary').limit(1).get();
+      console.log("Firebase 연결 성공");
+    } catch (error) {
+      console.error("Firebase 연결 실패:", error);
+      if (error.code === 'permission-denied') {
+        throw new Error("Firebase 접근 권한이 없습니다. Firebase 규칙을 확인해주세요.");
+      } else if (error.code === 'unavailable') {
+        throw new Error("Firebase 서버에 연결할 수 없습니다. 인터넷 연결을 확인해주세요.");
+      } else {
+        throw new Error(`Firebase 연결 오류: ${error.message}`);
+      }
+    }
+
+    // 인증 상태 변경 감지
+    firebase.auth().onAuthStateChanged((user) => {
+      if (user) {
+        // 로그인 상태
+        currentUser = user;
+        showModeSelector();
+        loadUserData();
+      } else {
+        // 로그아웃 상태
+        currentUser = null;
+        showAuthContainer();
+      }
+    });
+
+    // Firebase에서 데이터 가져오기
+    const vocabularyRef = db.collection('vocabulary');
+    
+    try {
+      const snapshot = await vocabularyRef.get();
+      
+      if (snapshot.empty) {
+        console.log("Firebase에 데이터가 없습니다. JSON 파일에서 데이터를 가져옵니다.");
+        const res = await fetch("vocabulary_processed.json");
+        if (!res.ok) throw new Error("JSON 파일을 불러오지 못했습니다.");
+        allWords = await res.json();
+
+        if (!Array.isArray(allWords) || allWords.length === 0)
+          throw new Error("단어 배열이 비어 있습니다.");
+
+        // Firebase에 데이터 저장
+        console.log("Firebase에 데이터를 저장합니다...");
+        const batch = db.batch();
+        allWords.forEach(word => {
+          const docRef = vocabularyRef.doc(word.number.toString());
+          batch.set(docRef, word);
+        });
+        await batch.commit();
+        console.log("Firebase에 데이터 저장이 완료되었습니다.");
+      } else {
+        console.log("Firebase에서 데이터를 가져옵니다.");
+        allWords = snapshot.docs.map(doc => doc.data());
+        console.log(`${allWords.length}개의 단어를 가져왔습니다.`);
+      }
+    } catch (firebaseError) {
+      console.error("Firebase 작업 중 오류 발생:", firebaseError);
+      const res = await fetch("vocabulary_processed.json");
+      if (!res.ok) throw new Error("JSON 파일을 불러오지 못했습니다.");
+      allWords = await res.json();
+    }
 
     // 총 단어 수 표시
     totalCountEl.textContent = `총 ${allWords.length}개 단어`;
 
-    // (2) 이벤트 리스너 연결
+    // 이벤트 리스너 연결
     attachEvents();
 
-    // 모드 선택 화면 표시
-    showModeSelector();
   } catch (err) {
+    console.error("초기화 중 오류 발생:", err);
     alert(
-      err.message +
-        "\n\nTIP: 파일을 file:// 로 열면 fetch가 막힙니다.\n" +
-        "   ⇒ 로컬 서버를 하나 띄워 주세요.\n" +
-        '      (예: "npx serve" 또는 "python -m http.server")'
+      "데이터를 불러오는 중 오류가 발생했습니다.\n\n" +
+      "오류 내용: " + err.message + "\n\n" +
+      "1. 인터넷 연결을 확인해주세요.\n" +
+      "2. Firebase 설정이 올바른지 확인해주세요.\n" +
+      "3. Firebase 프로젝트의 결제 상태를 확인해주세요.\n" +
+      "4. 브라우저 콘솔(F12)에서 자세한 오류 내용을 확인할 수 있습니다."
     );
-    console.error(err);
+  } finally {
+    hideLoading();
   }
+}
+
+function showLoading() {
+  loadingEl.style.display = "flex";
+}
+
+function hideLoading() {
+  loadingEl.style.display = "none";
 }
 
 // ④ 이벤트 -------------------------------------------
 function attachEvents() {
-  // 모드 선택 이벤트
-  fullModeBtnEl.addEventListener("click", () => startMode("full"));
-  randomModeBtnEl.addEventListener("click", () => startMode("random"));
-  backToModeBtnEl.addEventListener("click", showModeSelector);
+  // DOM 요소 존재 여부 확인
+  const elements = {
+    loginBtn: loginBtnEl,
+    signupBtn: signupBtnEl,
+    logoutBtn: logoutBtnEl,
+    googleLoginBtn: googleLoginBtnEl,
+    fullModeBtn: fullModeBtnEl,
+    randomModeBtn: randomModeBtnEl,
+    backToModeBtn: backToModeBtnEl,
+    revealBtn: revealBtn,
+    correctBtn: correctBtn,
+    wrongBtn: wrongBtn,
+    prevBtn: prevBtn,
+    nextBtn: nextBtn,
+    resetStatsBtn: resetStatsBtn
+  };
 
-  // 기존 이벤트
-  revealBtn.addEventListener("click", revealHandler);
-  correctBtn.addEventListener("click", () => storeAnswer(true));
-  wrongBtn.addEventListener("click", () => storeAnswer(false));
-  prevBtn.addEventListener("click", () => move(-1));
-  nextBtn.addEventListener("click", () => move(1));
-  resetStatsBtn.addEventListener("click", resetStats);
+  // 각 요소의 존재 여부 확인 및 이벤트 리스너 연결
+  if (elements.loginBtn) {
+    elements.loginBtn.addEventListener("click", handleLogin);
+  }
+  if (elements.signupBtn) {
+    elements.signupBtn.addEventListener("click", handleSignup);
+  }
+  if (elements.logoutBtn) {
+    elements.logoutBtn.addEventListener("click", handleLogout);
+  }
+  if (elements.googleLoginBtn) {
+    elements.googleLoginBtn.addEventListener("click", handleGoogleLogin);
+  }
+  if (elements.fullModeBtn) {
+    elements.fullModeBtn.addEventListener("click", () => startMode("full"));
+  }
+  if (elements.randomModeBtn) {
+    elements.randomModeBtn.addEventListener("click", () => startMode("random"));
+  }
+  if (elements.backToModeBtn) {
+    elements.backToModeBtn.addEventListener("click", showModeSelector);
+  }
+  if (elements.revealBtn) {
+    elements.revealBtn.addEventListener("click", revealHandler);
+  }
+  if (elements.correctBtn) {
+    elements.correctBtn.addEventListener("click", () => storeAnswer(true));
+  }
+  if (elements.wrongBtn) {
+    elements.wrongBtn.addEventListener("click", () => storeAnswer(false));
+  }
+  if (elements.prevBtn) {
+    elements.prevBtn.addEventListener("click", () => move(-1));
+  }
+  if (elements.nextBtn) {
+    elements.nextBtn.addEventListener("click", () => move(1));
+  }
+  if (elements.resetStatsBtn) {
+    elements.resetStatsBtn.addEventListener("click", resetStats);
+  }
 
+  // 키보드 이벤트
   document.addEventListener("keydown", (e) => {
-    if (modeSelectorEl.style.display === "none") {
+    if (modeSelectorEl && modeSelectorEl.style.display === "none") {
       // 학습 모드일 때만 키보드 이벤트 처리
       if (e.key === "ArrowRight") move(1);
       if (e.key === "ArrowLeft") move(-1);
@@ -90,15 +234,17 @@ function attachEvents() {
 
   // 스와이프 이벤트 추가
   const cardElement = document.getElementById("card");
-  cardElement.addEventListener("touchstart", handleTouchStart, {
-    passive: true,
-  });
-  cardElement.addEventListener("touchend", handleTouchEnd, { passive: true });
+  if (cardElement) {
+    cardElement.addEventListener("touchstart", handleTouchStart, {
+      passive: true,
+    });
+    cardElement.addEventListener("touchend", handleTouchEnd, { passive: true });
+  }
 }
 
 // ⑤ 모드 관련 함수 -----------------------------------
 function showModeSelector() {
-  // 모드 선택 화면 표시, 학습 화면 숨김
+  authContainerEl.style.display = "none";
   modeSelectorEl.style.display = "block";
   studyContainerEl.style.display = "none";
 
@@ -228,13 +374,32 @@ function revealHandler() {
   revealStep++;
 }
 
-function storeAnswer(isCorrect) {
-  // 모드별 LocalStorage 키 생성
-  const storagePrefix = currentMode === "random" ? "random-" : "";
-  const key = `${storagePrefix}word-${words[idx].number}`;
-  localStorage.setItem(key, isCorrect ? "O" : "X");
-  updateStats(); // 통계 업데이트
-  move(1);
+async function storeAnswer(isCorrect) {
+  if (!currentUser) return;
+
+  try {
+    const userRef = db.collection('users').doc(currentUser.uid);
+    const wordRef = userRef.collection('words').doc(words[idx].number.toString());
+    
+    await wordRef.set({
+      word: words[idx].english_word,
+      isCorrect: isCorrect,
+      timestamp: firebase.firestore.FieldValue.serverTimestamp(),
+      mode: currentMode
+    });
+
+    // 통계 업데이트
+    const statsRef = userRef.collection('stats').doc(currentMode);
+    await statsRef.set({
+      correct: firebase.firestore.FieldValue.increment(isCorrect ? 1 : 0),
+      wrong: firebase.firestore.FieldValue.increment(isCorrect ? 0 : 1)
+    }, { merge: true });
+
+    updateStats();
+    move(1);
+  } catch (error) {
+    console.error("학습 기록 저장 오류:", error);
+  }
 }
 
 function move(delta) {
@@ -245,51 +410,154 @@ function move(delta) {
 }
 
 // 통계 계산 및 표시 (모드별 구분)
-function updateStats() {
-  let correct = 0;
-  let wrong = 0;
-  let total = 0;
+async function updateStats() {
+  if (!currentUser) return;
 
-  // 모드별 LocalStorage 접두사
-  const storagePrefix = currentMode === "random" ? "random-" : "";
-
-  // 현재 모드의 단어셋에 대한 O/X 상태 확인
-  for (const word of words) {
-    const key = `${storagePrefix}word-${word.number}`;
-    const status = localStorage.getItem(key);
-
-    if (status === "O") {
-      correct++;
-      total++;
-    } else if (status === "X") {
-      wrong++;
-      total++;
+  try {
+    const statsRef = db.collection('users').doc(currentUser.uid)
+      .collection('stats').doc(currentMode);
+    const doc = await statsRef.get();
+    
+    if (doc.exists) {
+      const stats = doc.data();
+      statsCorrectEl.textContent = `맞춤: ${stats.correct || 0}`;
+      statsWrongEl.textContent = `틀림: ${stats.wrong || 0}`;
+      const total = (stats.correct || 0) + (stats.wrong || 0);
+      const progress = total > 0 ? Math.round((stats.correct / total) * 100) : 0;
+      statsTotalEl.textContent = `진행: ${progress}%`;
     }
+  } catch (error) {
+    console.error("통계 업데이트 오류:", error);
   }
-
-  // 통계 화면 업데이트
-  statsCorrectEl.textContent = `맞춤: ${correct}`;
-  statsWrongEl.textContent = `틀림: ${wrong}`;
-
-  const progress =
-    words.length > 0 ? Math.round((total / words.length) * 100) : 0;
-  statsTotalEl.textContent = `진행: ${progress}%`;
 }
 
 // 통계 초기화 (모드별 구분)
-function resetStats() {
-  if (confirm("현재 모드의 학습 기록을 초기화하시겠습니까?")) {
-    // 모드별 LocalStorage 접두사
-    const storagePrefix = currentMode === "random" ? "random-" : "";
+async function resetStats() {
+  if (!currentUser) return;
 
-    // 현재 모드의 단어 관련 localStorage 항목만 삭제
-    for (const word of words) {
-      const key = `${storagePrefix}word-${word.number}`;
-      localStorage.removeItem(key);
-    }
-
-    // 통계 및 화면 업데이트
+  try {
+    const statsRef = db.collection('users').doc(currentUser.uid)
+      .collection('stats').doc(currentMode);
+    await statsRef.set({
+      correct: 0,
+      wrong: 0
+    });
     updateStats();
-    showWordStatus();
+  } catch (error) {
+    console.error("통계 초기화 오류:", error);
+  }
+}
+
+// 인증 관련 함수들
+async function handleLogin() {
+  const email = emailEl.value;
+  const password = passwordEl.value;
+
+  try {
+    showLoading();
+    await firebase.auth().signInWithEmailAndPassword(email, password);
+    authErrorEl.textContent = "";
+  } catch (error) {
+    console.error("로그인 오류:", error);
+    authErrorEl.textContent = "로그인에 실패했습니다: " + error.message;
+  } finally {
+    hideLoading();
+  }
+}
+
+async function handleSignup() {
+  const email = emailEl.value;
+  const password = passwordEl.value;
+
+  try {
+    showLoading();
+    await firebase.auth().createUserWithEmailAndPassword(email, password);
+    authErrorEl.textContent = "";
+  } catch (error) {
+    console.error("회원가입 오류:", error);
+    authErrorEl.textContent = "회원가입에 실패했습니다: " + error.message;
+  } finally {
+    hideLoading();
+  }
+}
+
+async function handleLogout() {
+  try {
+    await firebase.auth().signOut();
+  } catch (error) {
+    console.error("로그아웃 오류:", error);
+  }
+}
+
+async function handleGoogleLogin() {
+  try {
+    showLoading();
+    const provider = new firebase.auth.GoogleAuthProvider();
+    
+    // 팝업 차단 확인
+    const popup = await firebase.auth().signInWithPopup(provider);
+    if (!popup) {
+      throw new Error("팝업이 차단되었습니다. 팝업 차단을 해제해주세요.");
+    }
+    
+    console.log("Google 로그인 성공:", popup.user);
+    authErrorEl.textContent = "";
+  } catch (error) {
+    console.error("구글 로그인 오류:", error);
+    let errorMessage = "구글 로그인에 실패했습니다: ";
+    
+    switch (error.code) {
+      case 'auth/popup-blocked':
+        errorMessage += "팝업이 차단되었습니다. 팝업 차단을 해제해주세요.";
+        break;
+      case 'auth/popup-closed-by-user':
+        errorMessage += "로그인 창이 닫혔습니다. 다시 시도해주세요.";
+        break;
+      case 'auth/cancelled-popup-request':
+        errorMessage += "로그인이 취소되었습니다.";
+        break;
+      case 'auth/network-request-failed':
+        errorMessage += "네트워크 연결을 확인해주세요.";
+        break;
+      default:
+        errorMessage += error.message;
+    }
+    
+    authErrorEl.textContent = errorMessage;
+  } finally {
+    hideLoading();
+  }
+}
+
+// 화면 전환 함수들
+function showAuthContainer() {
+  authContainerEl.style.display = "block";
+  modeSelectorEl.style.display = "none";
+  studyContainerEl.style.display = "none";
+}
+
+// 사용자 데이터 관련 함수들
+async function loadUserData() {
+  if (!currentUser) return;
+
+  try {
+    const userRef = db.collection('users').doc(currentUser.uid);
+    const doc = await userRef.get();
+    
+    if (!doc.exists) {
+      // 새 사용자 데이터 생성
+      await userRef.set({
+        email: currentUser.email,
+        displayName: currentUser.displayName,
+        photoURL: currentUser.photoURL,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp(),
+        stats: {
+          full: { correct: 0, wrong: 0 },
+          random: { correct: 0, wrong: 0 }
+        }
+      });
+    }
+  } catch (error) {
+    console.error("사용자 데이터 로드 오류:", error);
   }
 }
